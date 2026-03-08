@@ -14,7 +14,6 @@ def bottom_menu_kb():
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="💵 Фин. отчет")],
             [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="📄 Excel 24ч")],
-            [KeyboardButton(text="/stats"), KeyboardButton(text="/xlsx24")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие",
@@ -112,6 +111,6 @@ async def xlsx24_cmd(message: Message, db):
 @router.message()
 async def fallback_menu(message: Message):
     await message.answer(
-        "Используй кнопки снизу или команды /stats, /opened, /finreport, /xlsx24",
+        "Нажми /start чтобы показать меню, затем используй кнопки снизу.",
         reply_markup=bottom_menu_kb(),
     )
