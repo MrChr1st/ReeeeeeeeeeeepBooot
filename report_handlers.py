@@ -14,14 +14,18 @@ def bottom_menu_kb():
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="💵 Фин. отчет")],
             [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="📄 Excel 24ч")],
+            [KeyboardButton(text="/stats"), KeyboardButton(text="/xlsx24")],
         ],
         resize_keyboard=True,
+        input_field_placeholder="Выберите действие",
     )
 
 
-def _stats_text(storage) -> str:
-    stats = storage.get_stats_24h()
-    totals = "\n".join(f"• {cur}: {amt:.8f}" for cur, amt in sorted(stats["totals"].items())) or "—"
+def _stats_text(db) -> str:
+    stats = db.get_stats_24h()
+    totals = "\n".join(
+        f"• {cur}: {amt:.8f}" for cur, amt in sorted(stats["totals"].items())
+    ) or "—"
     return (
         "📊 Отчет за 24ч\n\n"
         f"👥 Открыли обмен: {stats['opened']}\n"
@@ -37,38 +41,77 @@ def _stats_text(storage) -> str:
 
 @router.message(Command("start"))
 async def start_cmd(message: Message):
-    await message.answer("📊 Repoorrttt bot online", reply_markup=bottom_menu_kb())
+    await message.answer(
+        "📊 Repoorrttt bot online\n\nВыберите действие кнопками снизу.",
+        reply_markup=bottom_menu_kb(),
+    )
+
+
+@router.message(Command("help"))
+async def help_cmd(message: Message):
+    await message.answer(
+        "Команды:\n"
+        "/stats - статистика за 24ч\n"
+        "/opened - кто открывал обмен\n"
+        "/finreport - финансовый отчет\n"
+        "/xlsx24 - Excel отчет за 24ч",
+        reply_markup=bottom_menu_kb(),
+    )
 
 
 @router.message(Command("stats"))
 @router.message(F.text == "📊 Статистика")
-async def stats_cmd(message: Message, storage):
-    await message.answer(_stats_text(storage), reply_markup=bottom_menu_kb())
+async def stats_cmd(message: Message, db):
+    await message.answer(_stats_text(db), reply_markup=bottom_menu_kb())
 
 
 @router.message(Command("opened"))
 @router.message(F.text == "👤 Кто открыл")
-async def opened_cmd(message: Message, storage):
-    rows = storage.get_opened_rows_24h()
+async def opened_cmd(message: Message, db):
+    rows = db.get_opened_rows_24h()
     if not rows:
-        await message.answer("За последние 24 часа никто не открывал обмен", reply_markup=bottom_menu_kb())
+        await message.answer(
+            "За последние 24 часа никто не открывал обмен",
+            reply_markup=bottom_menu_kb(),
+        )
         return
+
     body = "\n\n".join(
-        f"{row['created_at']}\n@{row['username']}" if row.get("username") else f"{row['created_at']}\nid={row['user_id']}"
+        f"{row['created_at']}\n@{row['username']}"
+        if row.get("username")
+        else f"{row['created_at']}\nid={row['user_id']}"
         for row in rows[-50:]
     )
-    await message.answer(("👤 Кто открывал обмен за 24 часа\n\n" + body)[:4096], reply_markup=bottom_menu_kb())
+    await message.answer(
+        ("👤 Кто открывал обмен за 24 часа\n\n" + body)[:4096],
+        reply_markup=bottom_menu_kb(),
+    )
 
 
 @router.message(Command("finreport"))
 @router.message(F.text == "💵 Фин. отчет")
-async def finreport_cmd(message: Message, storage):
-    await message.answer(_stats_text(storage), reply_markup=bottom_menu_kb())
+async def finreport_cmd(message: Message, db):
+    await message.answer(_stats_text(db), reply_markup=bottom_menu_kb())
 
 
 @router.message(Command("xlsx24"))
 @router.message(F.text == "📄 Excel 24ч")
-async def xlsx24_cmd(message: Message, storage):
-    file_path = generate_excel_report_24h(storage)
-    document = FSInputFile(file_path, filename=f"report_24h_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
-    await message.answer_document(document, caption="📊 Excel отчёт за последние 24 часа", reply_markup=bottom_menu_kb())
+async def xlsx24_cmd(message: Message, db):
+    file_path = generate_excel_report_24h(db)
+    document = FSInputFile(
+        file_path,
+        filename=f"report_24h_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+    )
+    await message.answer_document(
+        document,
+        caption="📊 Excel отчёт за последние 24 часа",
+        reply_markup=bottom_menu_kb(),
+    )
+
+
+@router.message()
+async def fallback_menu(message: Message):
+    await message.answer(
+        "Используй кнопки снизу или команды /stats, /opened, /finreport, /xlsx24",
+        reply_markup=bottom_menu_kb(),
+    )
