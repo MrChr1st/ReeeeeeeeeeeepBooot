@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from aiogram import F, Router
@@ -77,7 +76,7 @@ def _add_rows(ws, rows: list[list], border):
                 cell.fill = alt_fill
 
 
-def _make_excel_report(config):
+def make_excel_report(config):
     events = get_last_24h(config.events_file)
     opened_rows = build_opened_rows(events)
     request_rows = build_request_rows(events)
@@ -211,7 +210,7 @@ async def opened_cmd(message: Message, config):
 @router.message(Command("xlsx24"))
 @router.message(F.text == "📄 Excel 24ч")
 async def xlsx24_cmd(message: Message, config):
-    file_path = _make_excel_report(config)
+    file_path = make_excel_report(config)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     document = FSInputFile(file_path, filename=f"report_24h_{timestamp}.xlsx")
     await message.answer_document(document, caption="📊 Excel отчёт за последние 24 часа", reply_markup=bottom_menu_kb())
