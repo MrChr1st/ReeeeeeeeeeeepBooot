@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from dataclasses import dataclass
 
 
@@ -11,6 +12,7 @@ class ReportConfig:
 
 
 def load_report_config() -> ReportConfig:
+    load_dotenv()
     token = os.getenv("BOT_TOKEN", "").strip()
     db_url = os.getenv("DATABASE_URL", "").strip()
     if not token:
