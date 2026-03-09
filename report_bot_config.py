@@ -1,9 +1,8 @@
 import os
-from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from dataclasses import dataclass
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from dotenv import load_dotenv
-from dataclasses import dataclass
 
 
 @dataclass
@@ -14,35 +13,28 @@ class ReportConfig:
     auto_report_hours: int
 
 
-def _load_env_file() -> None:
-    base_dir = Path(__file__).resolve().parent
-    load_dotenv(base_dir / ".env")
-    load_dotenv()
-
-
-def _ensure_sslmode_require(database_url: str) -> str:
-    value = (database_url or "").strip()
-    if not value:
-        return value
-    if "sslmode=" in value:
-        return value
-    parts = urlsplit(value)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["sslmode"] = "require"
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+def _add_sslmode_if_needed(database_url: str) -> str:
+    parsed = urlparse(database_url)
+    if not parsed.scheme or not parsed.netloc:
+        return database_url
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if "sslmode" not in query:
+        query["sslmode"] = "require"
+        parsed = parsed._replace(query=urlencode(query))
+    return urlunparse(parsed)
 
 
 def load_report_config() -> ReportConfig:
-    _load_env_file()
+    load_dotenv()
     token = os.getenv("BOT_TOKEN", "").strip()
-    db_url = _ensure_sslmode_require(os.getenv("DATABASE_URL", "").strip())
+    db_url = os.getenv("DATABASE_URL", "").strip()
     if not token:
         raise ValueError("BOT_TOKEN is empty")
     if not db_url:
         raise ValueError("DATABASE_URL is empty")
     return ReportConfig(
         bot_token=token,
-        database_url=db_url,
+        database_url=_add_sslmode_if_needed(db_url),
         private_chat_id=os.getenv("PRIVATE_CHAT_ID", "").strip(),
         auto_report_hours=int(os.getenv("AUTO_REPORT_HOURS", "24").strip()),
     )

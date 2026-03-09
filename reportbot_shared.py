@@ -52,7 +52,7 @@ def generate_excel_report_24h(storage) -> str:
     wb = Workbook()
     ws1 = wb.active
     border1 = _style_sheet(ws1, "Открытия обмена", ["Время", "Пользователь", "User ID", "Профиль"])
-    rows1 = [[str(r["created_at"]), r.get("username",""), r.get("user_id",""), r.get("profile_link", "")] for r in opened]
+    rows1 = [[str(r["created_at"]), r.get("username", ""), r.get("user_id", ""), r.get("profile_link", "")] for r in opened]
     _add_rows(ws1, rows1, border1)
     _autosize(ws1)
 
@@ -60,7 +60,21 @@ def generate_excel_report_24h(storage) -> str:
     border2 = _style_sheet(
         ws2,
         "Заявки",
-        ["Время", "Заявка", "Пользователь", "User ID", "Профиль", "Отдаёт", "Получает", "Сумма отдачи", "Сумма получения", "Реквизиты", "Оплата", "Статус", "Оплачено в"],
+        [
+            "Время",
+            "Заявка",
+            "Пользователь",
+            "User ID",
+            "Профиль",
+            "Отдаёт",
+            "Получает",
+            "Сумма отдачи",
+            "Сумма получения",
+            "Реквизиты",
+            "Оплата",
+            "Статус",
+            "Оплачено в",
+        ],
     )
     rows2 = []
     for r in requests:
@@ -75,7 +89,7 @@ def generate_excel_report_24h(storage) -> str:
             r.get("amount_from", ""),
             r.get("amount_to", ""),
             r.get("receive_details", ""),
-            f"{r.get('payment_method','')} / {r.get('payment_submethod','')}",
+            f"{r.get('payment_method', '')} / {r.get('payment_submethod', '')}",
             "Оплачено" if r.get("paid_at") else "Ожидает оплаты",
             str(r["paid_at"]) if r.get("paid_at") else "",
         ])

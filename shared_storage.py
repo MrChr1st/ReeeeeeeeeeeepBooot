@@ -1,30 +1,22 @@
 import os
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
-def _ensure_sslmode_require(database_url: str) -> str:
-    value = (database_url or "").strip()
-    if not value:
-        return value
-    if "sslmode=" in value:
-        return value
-    parts = urlsplit(value)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["sslmode"] = "require"
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
-
-
 class SharedStorage:
     def __init__(self, dsn: str = ""):
-        self.dsn = _ensure_sslmode_require((dsn or os.getenv("DATABASE_URL", "")).strip())
+        self.dsn = (dsn or os.getenv("DATABASE_URL", "")).strip()
         if not self.dsn:
             raise ValueError("DATABASE_URL is empty")
 
     def _connect(self):
-        return psycopg2.connect(self.dsn, cursor_factory=RealDictCursor, connect_timeout=15, application_name="reportbot")
+        return psycopg2.connect(
+            self.dsn,
+            cursor_factory=RealDictCursor,
+            connect_timeout=15,
+            application_name="reportbot",
+        )
 
     def init(self):
         from services_supabase_sync_schema import init_schema
@@ -58,9 +50,6 @@ class SharedStorage:
         wallet = self._fetchone(
             "SELECT COUNT(*) AS cnt FROM shared_exchange_events WHERE event_type='wallet_urgent' AND created_at >= NOW() - INTERVAL '24 hours'"
         )["cnt"]
-        started = self._fetchone(
-            "SELECT COUNT(*) AS cnt FROM shared_exchange_events WHERE event_type='user_started' AND created_at >= NOW() - INTERVAL '24 hours'"
-        )["cnt"]
         turnover_rows = self._fetchall(
             """
             SELECT from_currency, SUM(amount_from) AS total
@@ -72,7 +61,6 @@ class SharedStorage:
         )
         totals = {r["from_currency"]: float(r["total"] or 0) for r in turnover_rows}
         return {
-            "started": int(started or 0),
             "opened": int(opened or 0),
             "new_requests": int(new_requests or 0),
             "paid": int(paid or 0),
@@ -92,22 +80,10 @@ class SharedStorage:
             """
         )
 
-    def get_started_rows_24h(self):
-        return self._fetchall(
-            """
-            SELECT created_at, user_id, username, profile_link
-            FROM shared_exchange_events
-            WHERE event_type='user_started' AND created_at >= NOW() - INTERVAL '24 hours'
-            ORDER BY created_at ASC
-            """
-        )
-
     def get_request_rows_24h(self):
         return self._fetchall(
             """
-            SELECT request_id, user_id, username, profile_link, from_currency, to_currency, amount_from,
-                   amount_to, receive_details, payment_method, payment_submethod, status,
-                   created_at, updated_at, paid_at, completed_at, cancelled_at
+            SELECT *
             FROM shared_exchange_requests
             WHERE created_at >= NOW() - INTERVAL '24 hours'
             ORDER BY created_at ASC
