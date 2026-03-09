@@ -137,6 +137,6 @@ async def xlsx24_cmd(message: Message, db):
 @router.message()
 async def fallback_menu(message: Message):
     await message.answer(
-        "Нажми /start чтобы показать меню, затем используй кнопки снизу.",
+        "Выберите действие кнопками снизу или отправьте /menu.",
         reply_markup=bottom_menu_kb(),
     )

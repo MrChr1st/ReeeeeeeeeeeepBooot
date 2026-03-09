@@ -1,17 +1,30 @@
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
+def _ensure_sslmode_require(database_url: str) -> str:
+    value = (database_url or "").strip()
+    if not value:
+        return value
+    if "sslmode=" in value:
+        return value
+    parts = urlsplit(value)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["sslmode"] = "require"
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 class SharedStorage:
     def __init__(self, dsn: str = ""):
-        self.dsn = (dsn or os.getenv("DATABASE_URL", "")).strip()
+        self.dsn = _ensure_sslmode_require((dsn or os.getenv("DATABASE_URL", "")).strip())
         if not self.dsn:
             raise ValueError("DATABASE_URL is empty")
 
     def _connect(self):
-        return psycopg2.connect(self.dsn, cursor_factory=RealDictCursor)
+        return psycopg2.connect(self.dsn, cursor_factory=RealDictCursor, connect_timeout=15, application_name="reportbot")
 
     def init(self):
         from services_supabase_sync_schema import init_schema

@@ -74,7 +74,8 @@ async def auto_sender(bot: Bot, storage: SharedStorage, private_chat_id: str, ho
 
 
 async def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.info("Starting report bot...")
     config = load_report_config()
     storage = SharedStorage(config.database_url)
     storage.init()
@@ -86,6 +87,7 @@ async def main():
     dp.include_router(router)
 
     asyncio.create_task(auto_sender(bot, storage, config.private_chat_id, config.auto_report_hours))
+    logging.info("Report bot initialized successfully")
     await dp.start_polling(bot)
 
 
