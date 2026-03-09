@@ -35,6 +35,7 @@ def _stats_text(storage) -> str:
     totals = "\n".join(f"• {cur}: {amt:.8f}" for cur, amt in sorted(stats["totals"].items())) or "—"
     return (
         "📊 Отчет за 24ч\n\n"
+        f"🚀 Запустили бота: {stats['started']}\n"
         f"👥 Открыли обмен: {stats['opened']}\n"
         f"🧾 Создано заявок: {stats['new_requests']}\n"
         f"💰 Оплачено: {stats['paid']}\n"
@@ -81,6 +82,7 @@ async def main():
     bot = Bot(token=config.bot_token)
     dp = Dispatcher(storage=MemoryStorage())
     dp["storage"] = storage
+    dp["db"] = storage
     dp.include_router(router)
 
     asyncio.create_task(auto_sender(bot, storage, config.private_chat_id, config.auto_report_hours))

@@ -13,7 +13,8 @@ def bottom_menu_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="💵 Фин. отчет")],
-            [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="📄 Excel 24ч")],
+            [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="🚀 Кто запускал")],
+            [KeyboardButton(text="📄 Excel 24ч")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие",
@@ -27,6 +28,7 @@ def _stats_text(db) -> str:
     ) or "—"
     return (
         "📊 Отчет за 24ч\n\n"
+        f"🚀 Запустили бота: {stats['started']}\n"
         f"👥 Открыли обмен: {stats['opened']}\n"
         f"🧾 Создано заявок: {stats['new_requests']}\n"
         f"💰 Оплачено: {stats['paid']}\n"
@@ -41,7 +43,7 @@ def _stats_text(db) -> str:
 @router.message(Command("start"))
 async def start_cmd(message: Message):
     await message.answer(
-        "📊 Repoorrttt bot online\n\nВыберите действие кнопками снизу.",
+        "📊 Report bot online\n\nВыберите действие кнопками снизу.",
         reply_markup=bottom_menu_kb(),
     )
 
@@ -52,6 +54,7 @@ async def help_cmd(message: Message):
         "Команды:\n"
         "/stats - статистика за 24ч\n"
         "/opened - кто открывал обмен\n"
+        "/started - кто запускал клиент-бота\n"
         "/finreport - финансовый отчет\n"
         "/xlsx24 - Excel отчет за 24ч",
         reply_markup=bottom_menu_kb(),
@@ -83,6 +86,29 @@ async def opened_cmd(message: Message, db):
     )
     await message.answer(
         ("👤 Кто открывал обмен за 24 часа\n\n" + body)[:4096],
+        reply_markup=bottom_menu_kb(),
+    )
+
+
+@router.message(Command("started"))
+@router.message(F.text == "🚀 Кто запускал")
+async def started_cmd(message: Message, db):
+    rows = db.get_started_rows_24h()
+    if not rows:
+        await message.answer(
+            "За последние 24 часа клиент-бот не запускали",
+            reply_markup=bottom_menu_kb(),
+        )
+        return
+
+    body = "\n\n".join(
+        f"{row['created_at']}\n@{row['username']}"
+        if row.get("username")
+        else f"{row['created_at']}\nid={row['user_id']}"
+        for row in rows[-50:]
+    )
+    await message.answer(
+        ("🚀 Кто запускал клиент-бота за 24 часа\n\n" + body)[:4096],
         reply_markup=bottom_menu_kb(),
     )
 
