@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -9,11 +9,30 @@ from reportbot_shared import generate_excel_report_24h
 router = Router()
 
 
-def bottom_menu_kb() -> ReplyKeyboardMarkup:
+def _format_moscow_dt(value):
+    if not value:
+        return "—"
+    moscow = timezone(timedelta(hours=3))
+    if getattr(value, "tzinfo", None) is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(moscow).strftime("%d.%m.%Y %H:%M")
+
+
+def _format_user_line(row):
+    dt_text = _format_moscow_dt(row.get("created_at"))
+    username = row.get("username")
+    if username:
+        username = str(username).lstrip("@")
+        return f"• {dt_text} — @{username}"
+    return f"• {dt_text} — id={row.get('user_id')}"
+
+
+def bottom_menu_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="💵 Фин. отчет")],
-            [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="📄 Excel 24ч")],
+            [KeyboardButton(text="👤 Кто открыл"), KeyboardButton(text="🚀 Кто запускал")],
+            [KeyboardButton(text="📄 Excel 24ч")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие",
@@ -27,6 +46,7 @@ def _stats_text(db) -> str:
     ) or "—"
     return (
         "📊 Отчет за 24ч\n\n"
+        f"🚀 Запустили бота: {stats['started']}\n"
         f"👥 Открыли обмен: {stats['opened']}\n"
         f"🧾 Создано заявок: {stats['new_requests']}\n"
         f"💰 Оплачено: {stats['paid']}\n"
@@ -39,7 +59,6 @@ def _stats_text(db) -> str:
 
 
 @router.message(Command("start"))
-@router.message(Command("menu"))
 async def start_cmd(message: Message):
     await message.answer(
         "📊 Report bot online\n\nВыберите действие кнопками снизу.",
@@ -48,14 +67,15 @@ async def start_cmd(message: Message):
 
 
 @router.message(Command("help"))
+@router.message(Command("menu"))
 async def help_cmd(message: Message):
     await message.answer(
         "Команды:\n"
         "/stats - статистика за 24ч\n"
         "/opened - кто открывал обмен\n"
+        "/started - кто запускал клиент-бота\n"
         "/finreport - финансовый отчет\n"
-        "/xlsx24 - Excel отчет за 24ч\n"
-        "/menu - показать меню",
+        "/xlsx24 - Excel отчет за 24ч",
         reply_markup=bottom_menu_kb(),
     )
 
@@ -77,14 +97,27 @@ async def opened_cmd(message: Message, db):
         )
         return
 
-    body = "\n\n".join(
-        f"{row['created_at']}\n@{row['username']}"
-        if row.get("username")
-        else f"{row['created_at']}\nid={row['user_id']}"
-        for row in rows[-50:]
-    )
+    body = "\n".join(_format_user_line(row) for row in rows[-50:])
     await message.answer(
         ("👤 Кто открывал обмен за 24 часа\n\n" + body)[:4096],
+        reply_markup=bottom_menu_kb(),
+    )
+
+
+@router.message(Command("started"))
+@router.message(F.text == "🚀 Кто запускал")
+async def started_cmd(message: Message, db):
+    rows = db.get_started_rows_24h()
+    if not rows:
+        await message.answer(
+            "За последние 24 часа клиент-бот не запускали",
+            reply_markup=bottom_menu_kb(),
+        )
+        return
+
+    body = "\n".join(_format_user_line(row) for row in rows[-50:])
+    await message.answer(
+        ("🚀 Кто запускал клиент-бота за 24 часа\n\n" + body)[:4096],
         reply_markup=bottom_menu_kb(),
     )
 
@@ -113,6 +146,6 @@ async def xlsx24_cmd(message: Message, db):
 @router.message()
 async def fallback_menu(message: Message):
     await message.answer(
-        "Нажми /menu чтобы показать меню, затем используй кнопки снизу.",
+        "Выберите действие кнопками снизу или отправьте /menu.",
         reply_markup=bottom_menu_kb(),
     )
